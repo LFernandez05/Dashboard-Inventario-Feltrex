@@ -1,0 +1,7 @@
+# Archivos Excel con datos de inventario (no subir al repositorio)
+*.xlsx
+*.xls
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

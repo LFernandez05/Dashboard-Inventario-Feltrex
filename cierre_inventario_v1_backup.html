@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cierre de Inventario · Tablero</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root{--bg:#0f172a;--panel:#111827;--panel2:#1f2937;--line:#27314a;--text:#e5e7eb;--muted:#94a3b8;--accent:#3b82f6;--accent2:#22c55e;--warn:#f59e0b;--bad:#ef4444;--ok:#10b981;--soft:#0b1220;}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--accent)}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#111827,#0f172a);position:relative}
+  header h1{margin:0;font-size:18px;font-weight:600;letter-spacing:.2px}
+  header .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  main{padding:18px 28px;max-width:none;margin:0;width:100%}
+  .btn{background:var(--accent);color:#fff;border:0;padding:9px 14px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .grow{flex:1 1 200px}
+  label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+  select,input{background:var(--soft);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px;width:100%}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;background:var(--panel2);position:sticky;top:0;cursor:pointer;user-select:none}
+  th:hover{color:var(--text)}
+  tbody tr:hover{background:#162033}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .neg{color:var(--bad)} .pos{color:var(--ok)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--panel2);color:var(--muted)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+  .kpi .lab{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .val{font-size:22px;font-weight:700;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .hint{color:var(--muted);font-size:11.5px;margin-top:4px}
+  .grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+  @media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+  .scroll{max-height:520px;overflow:auto;border-radius:8px;border:1px solid var(--line)}
+  .scroll table{font-size:12.5px}
+  h2{margin:0 0 12px 0;font-size:15px;font-weight:600}
+  .empty{padding:60px 16px;text-align:center;color:var(--muted)}
+  .empty h2{font-size:18px;color:var(--text);margin-bottom:8px}
+  .files-table input,.files-table select{padding:5px 7px;font-size:12.5px}
+  .status-good{color:var(--ok)} .status-bad{color:var(--bad)} .status-warn{color:var(--warn)}
+  .legend{font-size:12px;color:var(--muted);margin-top:6px}
+  .tag{display:inline-block;padding:2px 7px;border-radius:6px;background:#1e293b;color:#cbd5e1;font-size:11px;margin-right:4px}
+  .tag.err{background:#3f1d1d;color:#fca5a5} .tag.ok{background:#0f2a1c;color:#86efac}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .toolbar .right{display:flex;gap:8px;flex-wrap:wrap}
+  hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+  canvas{max-width:100%}
+  .bar{height:8px;background:var(--panel2);border-radius:999px;overflow:hidden;margin-top:6px}
+  .bar > div{height:100%;background:linear-gradient(90deg,#22c55e,#3b82f6)}
+  .nowrap{white-space:nowrap}
+  .small{font-size:12px;color:var(--muted)}
+  tbody tr.row-sel{background:#1a3050 !important;outline:2px solid var(--accent);outline-offset:-2px;cursor:pointer}
+  tbody tr[data-key]{cursor:pointer}
+  .th-filter{background:var(--soft) !important;padding:4px 6px !important}
+  .th-filter select,.th-filter input{width:100%;font-size:11px;padding:3px 4px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:4px;cursor:pointer}
+  .th-filter input::placeholder{color:var(--muted)}
+  tfoot tr td{background:var(--panel2);font-weight:700;border-top:2px solid var(--line);position:sticky;bottom:0}
+  /* Filtros — barra moderna */
+  .filter-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 16px;align-items:end}
+  .filter-cell{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .filter-label{font-size:10.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;font-weight:600}
+  .filter-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-color:#0b1220;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 12px center;color:#e2e8f0;border:1px solid #1e293b;border-radius:8px;padding:11px 32px 11px 14px;font-size:13px;width:100%;cursor:pointer;transition:border-color .15s,box-shadow .15s;font-weight:500;height:42px}
+  .filter-select:hover{border-color:#334155}
+  .filter-select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.18)}
+  .filter-select option{background:#0b1220;color:#e2e8f0;padding:6px}
+  .filter-search{position:relative}
+  .filter-search input{background:#0b1220;color:#e2e8f0;border:1px solid #1e293b;border-radius:8px;padding:11px 12px 11px 38px;font-size:13px;width:100%;font-weight:500;height:42px;box-sizing:border-box}
+  .filter-search input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.18)}
+  .filter-search input::placeholder{color:#475569}
+  .filter-search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:#64748b;pointer-events:none}
+  .btn-limpiar{background:linear-gradient(90deg,#3b82f6 0%,#06b6d4 100%);color:#fff;border:0;padding:0 24px;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px;letter-spacing:0.8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-transform:uppercase;box-shadow:0 4px 14px rgba(59,130,246,0.35),inset 0 1px 0 rgba(255,255,255,0.15);transition:transform .1s,box-shadow .2s,filter .15s;width:100%;height:42px}
+  .btn-limpiar:hover{box-shadow:0 6px 20px rgba(59,130,246,0.5),inset 0 1px 0 rgba(255,255,255,0.2);transform:translateY(-1px);filter:brightness(1.05)}
+  .btn-limpiar:active{transform:translateY(0)}
+  /* Avance — lista tipo "slider" por Centro de Costo */
+  .avance-list{display:flex;flex-direction:column;gap:7px;padding:4px 0;max-height:520px;overflow-y:auto}
+  .avance-row{display:grid;grid-template-columns:210px 1fr 64px;gap:16px;align-items:center;padding:6px 10px;border-radius:8px;transition:background .15s}
+  .avance-row:hover{background:rgba(59,130,246,0.07)}
+  .avance-cc-name{color:#e2e8f0;font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .avance-sub{color:#64748b;font-size:10.5px;margin-top:1px;font-variant-numeric:tabular-nums;letter-spacing:0.2px}
+  .avance-pill{position:relative;height:14px}
+  .avance-pill-track{position:absolute;inset:0;background:linear-gradient(180deg,#0a1428,#080f1c);border:1px solid #1e3a5f;border-radius:999px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.55)}
+  .avance-pill-fill{position:absolute;top:1px;bottom:1px;left:1px;min-width:0;border-radius:999px;background:linear-gradient(90deg,var(--av-from),var(--av-mid) 60%,var(--av-to));box-shadow:0 0 10px var(--av-glow);transition:width .4s cubic-bezier(.2,.7,.3,1)}
+  .avance-pill-knob{position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:var(--av-to);box-shadow:0 0 0 3px var(--av-knob-ring),0 2px 8px rgba(0,0,0,0.6);border:2px solid #0a1428}
+  .avance-pct{color:#e2e8f0;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Cierre de Inventario · Tablero</h1>
+    <div class="sub">Carga los Excel de recuento por empresa y revisa KPIs, focos y plan de recuento</div>
+  </div>
+  <div style="position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:13px;pointer-events:none;user-select:none">
+    <!-- Logo Feltrex: círculo teal + doble chevron oscuro -->
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="24" r="24" fill="#2a8c8c"/>
+      <!-- Chevron izquierdo (más grande) -->
+      <path d="M28 11 L15 24 L28 37 L32 37 L19 24 L32 11 Z" fill="#1a1a1a"/>
+      <!-- Chevron derecho (más pequeño, superpuesto) -->
+      <path d="M35 15 L25 24 L35 33 L38 33 L28 24 L38 15 Z" fill="#1a1a1a"/>
+    </svg>
+    <!-- Texto: "Feltrex" en gris claro + ® superíndice -->
+    <div style="display:flex;align-items:baseline;gap:2px">
+      <span style="font-size:26px;font-weight:600;color:#d1d5db;font-family:-apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:-.3px">Feltrex</span>
+      <span style="font-size:13px;color:#9ca3af;font-weight:400">®</span>
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn" id="btnPick">Seleccionar carpeta</button>
+    <button class="btn secondary" id="btnAdd">Añadir archivos</button>
+    <button class="btn ghost" id="btnClear">Limpiar</button>
+  </div>
+</header>
+
+<main>
+  <section id="loader" class="card">
+    <h2>1. Archivos detectados</h2>
+    <div id="filesEmpty" class="small">Aún no cargas archivos. Haz click en <b>Seleccionar carpeta</b> para que el tablero recorra recursivamente y encuentre todos los .xlsx.</div>
+    <div id="filesWrap" style="display:none">
+      <div class="files-table scroll" style="max-height:340px">
+        <table><thead><tr><th>Archivo</th><th>Empresa</th><th>Mes</th><th>Hoja</th><th>Filas</th><th>Estado</th></tr></thead><tbody id="filesBody"></tbody></table>
+      </div>
+      <div class="row" style="margin-top:12px;justify-content:space-between;align-items:center">
+        <div class="small" id="filesSummary"></div>
+        <button class="btn" id="btnProcess">Procesar y generar tablero</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="dashboard" style="display:none">
+    <section class="card">
+      <h2 style="margin-bottom:14px">2. Filtros</h2>
+      <div class="filter-bar">
+        <div class="filter-cell"><label class="filter-label">Año</label><select id="fAnio" class="filter-select"></select></div>
+        <div class="filter-cell"><label class="filter-label">Mes</label><select id="fMes" class="filter-select"></select></div>
+        <div class="filter-cell"><label class="filter-label">Bodega</label><select id="fBodega" class="filter-select"></select></div>
+        <div class="filter-cell"><label class="filter-label">Centro de Costos</label><select id="fCC" class="filter-select"></select></div>
+        <div class="filter-cell"><label class="filter-label">Sub Grupo</label><select id="fSubGrupo" class="filter-select"></select></div>
+        <div class="filter-cell"><label class="filter-label">Buscador</label>
+          <div class="filter-search">
+            <svg class="filter-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="fBuscador" type="text" placeholder="Código o descripción">
+          </div>
+        </div>
+        <div class="filter-cell"><label class="filter-label">&nbsp;</label><button class="btn-limpiar" id="btnResetFilters"><span style="font-size:14px">↻</span> Limpiar</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <h2 style="margin:0">3. Avance de toma de inventario por Centro de Costo</h2>
+        <div id="avancePromedioBadge" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 16px;min-width:170px;text-align:center">
+          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Promedio CC</div>
+          <div id="avancePromedioValue" style="font-size:24px;font-weight:700;color:#22c55e;line-height:1">--</div>
+          <div id="avancePromedioDetail" style="font-size:10px;color:#64748b;margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="small" style="margin:8px 0 14px">Costo inventariado (Recuento: stock contado &times; costo unitario) versus Costo Inventario Inicial &middot; por Centro de Costo</div>
+      <div id="avanceEmpty" style="padding:30px 0;text-align:center;color:var(--muted);font-size:13px">Sin datos de Inventario Inicial. Aseg&uacute;rate de que el archivo contenga la hoja <strong>"Costo Inventario Inicial"</strong>.</div>
+      <div id="avanceContent" style="display:none">
+        <div id="avancePeriodo" style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:10px"></div>
+        <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap;align-items:center;font-size:11px;color:#94a3b8">
+          <span>Cada fila: <strong style="color:#cbd5e1">$ Recuento / $ Inv. Inicial</strong> · % avance</span>
+          <span style="display:flex;align-items:center;gap:4px;color:#67e8f9">● ≥90%</span>
+          <span style="display:flex;align-items:center;gap:4px;color:#fde68a">● 60–89%</span>
+          <span style="display:flex;align-items:center;gap:4px;color:#fca5a5">● &lt;60%</span>
+          <span style="display:flex;align-items:center;gap:4px;color:#fdba74">● &gt;100% sobreconteo</span>
+        </div>
+        <div id="avanceList" class="avance-list"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4. KPIs globales</h2>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <section class="card">
+      <h2>5. Histórico valorizado por Centro de Costo</h2>
+      <div class="small" style="margin-bottom:12px">Valor ajustado ($) por centro de costo — últimos 6 meses · Fuente: hoja de Contabilización</div>
+      <div class="scroll" style="max-height:360px">
+        <table id="tblHistCC"><thead></thead><tbody></tbody><tfoot></tfoot></table>
+      </div>
+      <div style="position:relative;height:300px;margin-top:20px">
+        <canvas id="chartHistCC"></canvas>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <section class="card">
+        <h2>6. Top productos con mayor diferencia</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="small" id="topCount" style="color:var(--muted)"></span>
+            <select id="fTopN" style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--card);color:var(--text);border:1px solid #374151;cursor:pointer">
+              <option value="5">Top 5</option>
+              <option value="10">Top 10</option>
+              <option value="20" selected>Top 20</option>
+              <option value="50">Top 50</option>
+              <option value="100">Top 100</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="small" style="color:var(--muted)">Subtotal Dif $:</span>
+            <span id="topSubtotal" style="font-size:16px;font-weight:700"></span>
+          </div>
+        </div>
+        <div class="scroll"><table id="tblTop"><thead></thead><tbody></tbody></table></div>
+      </section>
+      <section class="card" id="evoPanel">
+        <h2>7. Evolución mes a mes</h2>
+        <div id="evoEmpty" style="padding:60px 0;text-align:center;color:var(--muted);font-size:13px">Selecciona un producto del Top 20</div>
+        <div id="evoContent" style="display:none">
+          <div id="evoProdName" style="font-weight:600;margin-bottom:4px"></div>
+          <div id="evoProdCode" class="small" style="margin-bottom:12px"></div>
+          <div class="scroll"><table id="tblEvo"><thead></thead><tbody></tbody></table></div>
+          <div style="position:relative;height:180px;margin-top:14px"><canvas id="chartEvo"></canvas></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="card">
+      <h2>8. Exactitud por bodega (focos del plan de acción)</h2>
+      <div class="scroll" style="max-height:380px"><table id="tblBodega"><thead></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <h2>9. Productos sugeridos para recontar</h2>
+      <div class="small" style="margin-bottom:8px">Priorizados por mayor diferencia en plata, después por mayor diferencia en unidades.</div>
+      <div class="toolbar">
+        <div class="row" style="gap:8px;align-items:end">
+          <div><label>Mostrar</label>
+            <select id="recountLimit" style="width:120px">
+              <option value="50">Top 50</option>
+              <option value="100" selected>Top 100</option>
+              <option value="250">Top 250</option>
+              <option value="0">Todos</option>
+            </select>
+          </div>
+          <div><label>Mes objetivo</label><select id="recountMes" style="width:160px"></select></div>
+        </div>
+        <div class="right"><button class="btn secondary" id="btnExportRecount">Exportar a Excel</button></div>
+      </div>
+      <div class="scroll"><table id="tblRecount"><thead></thead><tbody></tbody></table></div>
+    </section>
+  </section>
+
+  <section id="emptyState" class="empty">
+    <h2>Sin datos cargados</h2>
+    <div>Selecciona la carpeta raíz de "Cierre de Inventarios" y el tablero leerá los .xlsx de cada subcarpeta de empresa.</div>
+  </section>
+</main>
+
+<script>
+/* ===== ESTADO GLOBAL ===== */
+const state={files:[],rows:[],rowsContab:[],rowsInvInicial:[],cols:null};
+// Desactivar datalabels globalmente; solo renderAvance lo activa
+if(typeof ChartDataLabels!=="undefined"){Chart.defaults.plugins.datalabels={display:false};}
+const MESES_ES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+/* ===== UTILIDADES ===== */
+const fmtMoney=n=>isFinite(n)?n.toLocaleString("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}):"—";
+const fmtNum  =n=>isFinite(n)?n.toLocaleString("es-CL",{maximumFractionDigits:0}):"—";
+const fmtPct  =n=>isFinite(n)?(n*100).toFixed(2)+"%":"—";
+const norm=s=>(s==null?"":String(s)).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const abs=Math.abs;
+function safeNum(v){if(v==null||v==="")return 0;if(typeof v==="number")return v;const x=parseFloat(String(v).replace(/[^\d\-.,]/g,"").replace(/\.(?=\d{3}(\D|$))/g,"").replace(",","."));return isFinite(x)?x:0;}
+function fmtCC(v){if(!v)return "";const s=Math.abs(v).toLocaleString("es-CL",{maximumFractionDigits:0});return v<0?`($${s})`:`$${s}`;}
+function mesCorto(ym){if(!ym||ym==="(sin mes)")return ym;return MESES_ES[parseInt(ym.split("-")[1])-1]||ym;}
+
+/* ===== MAPEO DE COLUMNAS ===== */
+const COL_MAP={
+  codigo:["numero de articulo","número de artículo","numero articulo","codigo articulo","cod articulo","codigo","code","cod","item","sku","material","articulo","nro item","nro articulo"],
+  descripcion:["descripcion del articulo","descripción del artículo","descripcion","desc","description","nombre","detalle","glosa"],
+  stock_t:["stock teorico","stock teórico","stock sap","stock sistema","teorico","teórico","sistema sap","sap"],
+  stock_c:["cantidad contada","stock contado","stock fisico","stock físico","conteo fisico","conteo","contado","fisico","físico","stock real","cantidad fisica","nuevo conteo"],
+  diff_u:["desviacion","desviación","diferencia unidades","dif unidades","diferencia u","diff unidades","variacion unidades","var unidades","diferencia","dif"],
+  costo:["costo unitario","costo ($)","valor unitario","precio unitario","costo","precio"],
+  diff_p:["dif costo inventario","total dif ($)","diferencia plata","diferencia $","diferencia valor","dif plata","var valor","variacion plata","diferencia clp","nueva dif costo inventario","diff plata","diff $","dif $"],
+  bodega:["nombre bodega","nombre almacen","nombre almacén","bodega","warehouse","almacen","almacén"],
+  cc:["centro de costos","centro de costo","centro costos","cost center","cc"],
+  sub_grupo:["sub grupo","subgrupo","sub-grupo","sub grp","subgrp","grupo articulo","grupo artículo","grupo de articulo","grupo de artículo","grupo"],
+  anio_col:["año","ano","year","ejercicio"],
+  mes_col:["mes","periodo","período","month"]
+};
+const SHEET_IGNORE=/\b(maestro|cat[aá]logo|bodegas?|c\.?costo|cuentas?|resumen|pivot|hoja\s*1|sheet\s*1|costo\s*inventario\s*inicial|inventario\s*inicial)\b/i;
+const SHEET_PREFER=/\b(recuento|inventario|contabilizaci[oó]n|conteo|stock)\b/i;
+const MES_NUM={enero:"01",febrero:"02",marzo:"03",abril:"04",mayo:"05",junio:"06",julio:"07",agosto:"08",septiembre:"09",setiembre:"09",octubre:"10",noviembre:"11",diciembre:"12","1":"01","2":"02","3":"03","4":"04","5":"05","6":"06","7":"07","8":"08","9":"09","10":"10","11":"11","12":"12","01":"01","02":"02","03":"03","04":"04","05":"05","06":"06","07":"07","08":"08","09":"09"};
+
+function mesFromCols(anio,mes){if(!anio||!mes)return "";const y=String(anio).match(/(20\d\d)/);if(!y)return "";const m=MES_NUM[norm(mes)]||(String(mes).match(/^\s*0?(\d{1,2})\s*$/)?MES_NUM[RegExp.$1]:"");if(!m)return "";return `${y[1]}-${m}`;}
+function findCol(headers,keys){const H=headers.map(norm);for(const k of keys){const i=H.indexOf(norm(k));if(i>=0)return i;}for(const k of keys){const i=H.findIndex(h=>h.includes(norm(k)));if(i>=0)return i;}return -1;}
+function guessMes(name){const s=norm(name);let m=s.match(/(20\d\d)[-_\/. ]?(0[1-9]|1[0-2])/);if(m)return `${m[1]}-${m[2]}`;m=s.match(/(0[1-9]|1[0-2])[-_\/. ]?(20\d\d)/);if(m)return `${m[2]}-${m[1]}`;for(let i=0;i<12;i++){if(s.includes(MESES_ES[i])){const y=s.match(/20\d\d/);if(y)return `${y[0]}-${String(i+1).padStart(2,"0")}`;}}return "";}
+function mesLabel(ym){if(!ym)return "(sin mes)";const[y,m]=ym.split("-");if(!m)return ym;return `${MESES_ES[parseInt(m)-1]||m} ${y}`;}
+function guessEmpresa(path){const parts=path.split("/").filter(Boolean);if(parts.length>=2)return parts[0];return "(sin empresa)";}
+
+/* ===== LECTURA DE CARPETA ===== */
+async function pickFolder(append=false){
+  if(!window.showDirectoryPicker){alert("Tu navegador no soporta selección de carpeta. Usa Chrome o Edge.");return;}
+  let handle;try{handle=await window.showDirectoryPicker();}catch(e){return;}
+  if(!append)state.files=[];
+  await walk(handle,"");renderFiles();
+}
+async function walk(dirHandle,prefix){
+  for await(const[name,h]of dirHandle.entries()){
+    if(h.kind==="directory"){await walk(h,prefix?`${prefix}/${name}`:name);}
+    else if(h.kind==="file"&&/\.xlsx$/i.test(name)&&!name.startsWith("~$")){
+      const path=prefix?`${prefix}/${name}`:name;
+      state.files.push({handle:h,name,path,empresa:guessEmpresa(path),mes:guessMes(name)||guessMes(prefix),sheet:"",rows:0,parsed:null,error:""});
+    }
+  }
+}
+
+/* ===== PARSING ===== */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function analyzeSheet(ws){
+  const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true,blankrows:false});
+  if(!aoa.length)return null;
+  let bestHi=-1,bestHits=0,bestIdx=null;
+  const scan=Math.min(aoa.length,30);
+  for(let i=0;i<scan;i++){
+    const headers=aoa[i]||[];const idx={};let hits=0,critical=0;
+    for(const k of Object.keys(COL_MAP)){idx[k]=findCol(headers,COL_MAP[k]);if(idx[k]>=0){hits++;if(["codigo","stock_t","stock_c","costo","diff_u","diff_p"].includes(k))critical++;}}
+    const score=hits+critical*2;
+    if(score>bestHits){bestHits=score;bestHi=i;bestIdx=idx;}
+  }
+  if(bestHi<0)return null;
+  return{score:bestHits,hi:bestHi,headers:aoa[bestHi],body:aoa.slice(bestHi+1),idx:bestIdx};
+}
+
+function parseContabilizacionRows(wb,f){
+  const CONT=/contabilizaci[oó]n/i;
+  const sn=wb.SheetNames.find(s=>CONT.test(s));if(!sn)return[];
+  const a=analyzeSheet(wb.Sheets[sn]);if(!a)return[];
+  const AJUST_KEYS=["total ajustado","total_ajustado","ajuste total","total ajuste","importe ajuste","importe ajustado","monto ajustado","valor ajustado","ajustado"];
+  let ajustIdx=findCol(a.headers,AJUST_KEYS);if(ajustIdx<0)ajustIdx=a.idx.diff_p;
+  const out=[];
+  for(const r of a.body){
+    if(!r||!r.length)continue;
+    const codigo=a.idx.codigo>=0?String(r[a.idx.codigo]||"").trim():"";if(!codigo)continue;
+    const ajustado=ajustIdx>=0?safeNum(r[ajustIdx]):0;
+    const diff_u=a.idx.diff_u>=0?safeNum(r[a.idx.diff_u]):0;
+    let mes=f.mes;
+    if(a.idx.anio_col>=0&&a.idx.mes_col>=0){const m=mesFromCols(r[a.idx.anio_col],r[a.idx.mes_col]);if(m)mes=m;}
+    out.push({empresa:f.empresa,mes,codigo,
+      descripcion:a.idx.descripcion>=0?String(r[a.idx.descripcion]||"").trim():"",
+      bodega:a.idx.bodega>=0?String(r[a.idx.bodega]||"").normalize("NFC").replace(/\s+/g," ").trim():"",
+      cc:a.idx.cc>=0?String(r[a.idx.cc]||"").normalize("NFC").replace(/\s+/g," ").trim():"",
+      sub_grupo:a.idx.sub_grupo>=0?String(r[a.idx.sub_grupo]||"").normalize("NFC").replace(/\s+/g," ").trim():"",
+      diff_u,ajustado});
+  }
+  return out;
+}
+
+function parseInvInicialRows(wb,f){
+  const INV=/costo\s*inventario\s*inicial|inventario\s*inicial/i;
+  const sn=wb.SheetNames.find(s=>INV.test(s));
+  if(!sn){console.warn("[InvInicial] Hoja no encontrada. Hojas disponibles:",wb.SheetNames.join(", "));return[];}
+  // Usar analyzeSheet para detección robusta de encabezados (misma lógica que hoja Recuento)
+  const a=analyzeSheet(wb.Sheets[sn]);
+  if(!a){console.warn("[InvInicial] analyzeSheet no pudo detectar encabezados en hoja:",sn);return[];}
+  console.log("[InvInicial] Hoja:",sn,"| Headers detectados:",a.headers.filter(h=>h!=="").join(" | "),"| idx:",JSON.stringify(a.idx));
+  // Columna de valor: buscar con findCol (usa coincidencia parcial case-insensitive)
+  const COST_KEYS=["valor acum","valor acum.","valor acumulado","saldo acumulado","inventario inicial ($)","costo inventario inicial","inventario inicial","valor inventario","monto inventario","costo inv","inv inicial","valor total","monto total","costo total","costo","valor","monto","total","importe"];
+  let costIdx=findCol(a.headers,COST_KEYS);
+  // Fallbacks encadenados
+  if(costIdx<0)costIdx=a.idx.diff_p;
+  if(costIdx<0)costIdx=a.idx.costo;
+  if(costIdx<0){
+    // Último recurso: última columna que tenga algún valor numérico y no sea CC/Año/Mes
+    const skipCols=new Set([a.idx.cc,a.idx.anio_col,a.idx.mes_col].filter(x=>x>=0));
+    for(let j=a.headers.length-1;j>=0;j--){
+      if(!skipCols.has(j)&&a.body.some(r=>r&&safeNum(r[j])!==0)){costIdx=j;break;}
+    }
+  }
+  const ccIdx=a.idx.cc;
+  if(ccIdx<0||costIdx<0){
+    console.warn("[InvInicial] Columnas no detectadas — CC idx:",ccIdx,"| Costo idx:",costIdx,"| Headers:",a.headers.filter(h=>h!=="").join(" | "));
+    return[];
+  }
+  console.log("[InvInicial] CC col idx:",ccIdx,"(",a.headers[ccIdx],") | Costo col idx:",costIdx,"(",a.headers[costIdx],") | Anio idx:",a.idx.anio_col,"| Mes idx:",a.idx.mes_col);
+  const out=[];
+  for(const r of a.body){
+    if(!r||!r.length)continue;
+    const cc=String(r[ccIdx]||"").normalize("NFC").replace(/\s+/g," ").trim();
+    if(!cc)continue;
+    const inv_inicial=safeNum(r[costIdx]);
+    if(inv_inicial===0)continue;
+    // Obtener mes: desde columnas Año+Mes del registro → fallback mes del archivo
+    let mes=f.mes;
+    if(a.idx.anio_col>=0&&a.idx.mes_col>=0){const m=mesFromCols(r[a.idx.anio_col],r[a.idx.mes_col]);if(m)mes=m;}
+    else if(a.idx.mes_col>=0){
+      const anioFallback=f.mes&&f.mes!=="(sin mes)"?f.mes.split("-")[0]:"";
+      if(anioFallback){const m=mesFromCols(anioFallback,r[a.idx.mes_col]);if(m)mes=m;}
+    }
+    out.push({empresa:f.empresa,mes,cc,inv_inicial});
+  }
+  console.log("[InvInicial] Total filas parseadas:",out.length,out.length>0?"| Ejemplo:"+JSON.stringify(out[0]):"| Sin filas con datos");
+  return out;
+}
+async function parseFile(f,onProgress){
+  try{
+    onProgress?.("Leyendo archivo…");
+    const file=await f.handle.getFile();const ab=await file.arrayBuffer();await sleep(0);
+    onProgress?.("Decodificando workbook…");
+    const wb=XLSX.read(ab,{type:"array",cellDates:false,cellNF:false,cellText:false});await sleep(0);
+    f.rowsContab=parseContabilizacionRows(wb,f);
+    f.rowsInvInicial=parseInvInicialRows(wb,f);
+    let best=null,bestSn=null;
+    for(const sn of wb.SheetNames){
+      onProgress?.(`Analizando hoja "${sn}"…`);
+      if(SHEET_IGNORE.test(sn))continue;
+      const a=analyzeSheet(wb.Sheets[sn]);if(!a)continue;
+      if(a.idx.codigo<0)continue;
+      if(a.idx.stock_t<0&&a.idx.stock_c<0&&a.idx.diff_u<0)continue;
+      const bonus=SHEET_PREFER.test(sn)?3:0;
+      const totalScore=a.score+bonus;
+      const better=!best||totalScore>best.score||(totalScore===best.score&&a.body.length>best.body.length);
+      if(better){best={...a,score:totalScore};bestSn=sn;}
+      await sleep(0);
+    }
+    if(!best){const firstSn=wb.SheetNames.find(s=>!SHEET_IGNORE.test(s))||wb.SheetNames[0];const a=analyzeSheet(wb.Sheets[firstSn]);const sample=a?a.headers.filter(h=>h!=="").slice(0,10).join(" | "):"(sin datos)";throw new Error(`Sin columnas reconocibles. Hojas: ${wb.SheetNames.join(", ")}. Headers: ${sample}`);}
+    onProgress?.(`Procesando "${bestSn}" (${best.body.length.toLocaleString()} filas)…`);
+    const idx=best.idx;const out=[];let lastYield=Date.now();
+    for(let ri=0;ri<best.body.length;ri++){
+      const r=best.body[ri];if(!r||!r.length)continue;
+      const codigo=r[idx.codigo];if(codigo===""||codigo==null)continue;
+      const stock_t=safeNum(idx.stock_t>=0?r[idx.stock_t]:0);
+      const stock_c=safeNum(idx.stock_c>=0?r[idx.stock_c]:0);
+      const costo=safeNum(idx.costo>=0?r[idx.costo]:0);
+      let diff_u=idx.diff_u>=0?safeNum(r[idx.diff_u]):(stock_c-stock_t);
+      let diff_p=idx.diff_p>=0?safeNum(r[idx.diff_p]):(diff_u*costo);
+      let mes=f.mes;
+      if(idx.anio_col>=0&&idx.mes_col>=0){const m=mesFromCols(r[idx.anio_col],r[idx.mes_col]);if(m)mes=m;}
+      out.push({empresa:f.empresa,mes,archivo:f.name,
+        codigo:String(codigo).trim(),
+        descripcion:idx.descripcion>=0?String(r[idx.descripcion]||"").trim():"",
+        bodega:idx.bodega>=0?String(r[idx.bodega]||"").trim():"",
+        cc:idx.cc>=0?String(r[idx.cc]||"").normalize("NFC").replace(/\s+/g," ").trim():"",
+        sub_grupo:idx.sub_grupo>=0?String(r[idx.sub_grupo]||"").normalize("NFC").replace(/\s+/g," ").trim():"",
+        stock_t,stock_c,costo,diff_u,diff_p});
+      if(Date.now()-lastYield>200){onProgress?.(`Procesando "${bestSn}" — ${ri.toLocaleString()}/${best.body.length.toLocaleString()} filas…`);await sleep(0);lastYield=Date.now();}
+    }
+    f.sheet=bestSn;f.rows=out.length;f.parsed=out;f.error="";
+    const missing=["codigo","stock_t","stock_c","costo"].filter(k=>idx[k]<0);
+    if(missing.length)f.warn=`Sin: ${missing.join(", ")}`;
+    return out;
+  }catch(e){f.error=e.message||String(e);f.parsed=null;f.rows=0;return[];}
+}
+
+/* ===== RENDER: ARCHIVOS ===== */
+function renderFiles(){
+  const wrap=document.getElementById("filesWrap"),empty=document.getElementById("filesEmpty"),tb=document.getElementById("filesBody");
+  if(!state.files.length){wrap.style.display="none";empty.style.display="";return;}
+  wrap.style.display="";empty.style.display="none";
+  tb.innerHTML=state.files.map((f,i)=>`<tr>
+    <td><div title="${f.path}">${f.name}</div><div class="small">${f.path.replace(f.name,"").replace(/\/$/,"")||"/"}</div></td>
+    <td><input data-i="${i}" data-k="empresa" value="${f.empresa||""}" style="min-width:140px"></td>
+    <td><input data-i="${i}" data-k="mes" placeholder="YYYY-MM" value="${f.mes||""}" style="width:120px"></td>
+    <td>${f.sheet?`<span class="tag ok">${f.sheet}</span>`:"<span class='small'>—</span>"}</td>
+    <td class="num">${(f.rows||0).toLocaleString()}</td>
+    <td>${f.error?`<span class="tag err" title="${f.error.replace(/"/g,'&quot;')}">${f.error.length>60?f.error.slice(0,60)+"…":f.error}</span>`:(f.parsed?(f.warn?`<span class="tag" style="background:#3a2c0e;color:#fbbf24">${f.warn}</span>`:'<span class="tag ok">OK</span>'):'<span class="tag">pendiente</span>')}</td>
+  </tr>`).join("");
+  tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("change",e=>{const i=+e.target.dataset.i,k=e.target.dataset.k;state.files[i][k]=e.target.value.trim();}));
+  document.getElementById("filesSummary").textContent=`${state.files.length} archivo(s) detectado(s). Ajusta empresa/mes si hace falta y presiona Procesar.`;
+}
+
+/* ===== PROCESAR ===== */
+async function processAll(){
+  if(!state.files.length)return;
+  const btn=document.getElementById("btnProcess"),summary=document.getElementById("filesSummary");
+  btn.disabled=true;btn.textContent="Procesando…";
+  state.rows=[];state.rowsContab=[];state.rowsInvInicial=[];
+  try{
+    for(let i=0;i<state.files.length;i++){
+      const f=state.files[i];
+      if(!f.empresa)f.empresa="(sin empresa)";if(!f.mes)f.mes="(sin mes)";
+      const tag=`[${i+1}/${state.files.length}] ${f.name}: `;
+      const out=await parseFile(f,msg=>{summary.textContent=tag+msg;});
+      for(const r of out){if(!r.empresa)r.empresa=f.empresa;}
+      state.rows.push(...out);state.rowsContab.push(...(f.rowsContab||[]));state.rowsInvInicial.push(...(f.rowsInvInicial||[]));
+      renderFiles();
+    }
+  }catch(e){alert("Error global: "+(e.message||e));console.error(e);}
+  btn.disabled=false;btn.textContent="Procesar y generar tablero";
+  renderFiles();
+  if(!state.rows.length){
+    const errs=state.files.map(f=>f.error?`• ${f.name}: ${f.error}`:"").filter(Boolean).join("\n");
+    alert("No se pudieron extraer filas.\n\n"+(errs||"Revisa que las hojas tengan las columnas esperadas."));
+    summary.textContent=`${state.files.length} archivo(s) detectado(s). Sin filas extraídas.`;return;
+  }
+  summary.textContent=`${state.rows.length.toLocaleString()} filas cargadas desde ${state.files.length} archivo(s).`;
+  document.getElementById("emptyState").style.display="none";
+  document.getElementById("dashboard").style.display="";
+  buildFilters();refresh();
+}
+
+/* ===== FILTROS ===== */
+function uniq(arr){return[...new Set(arr.filter(x=>x!==""&&x!=null))].sort((a,b)=>String(a).localeCompare(String(b),"es"));}
+function uniqNorm(arr){const seen=new Map();for(const v of arr){if(v==null||v==="")continue;const key=String(v).normalize("NFC").replace(/\s+/g," ").trim().toLowerCase();if(!seen.has(key))seen.set(key,String(v).normalize("NFC").replace(/\s+/g," ").trim());}return[...seen.values()].sort((a,b)=>a.localeCompare(b,"es"));}
+function fillSelect(id,values,makeLabel){const s=document.getElementById(id);const prev=s.value;s.innerHTML=`<option value="">TODOS</option>`+values.map(v=>`<option value="${String(v).replace(/"/g,'&quot;')}">${makeLabel?makeLabel(v):v}</option>`).join("");if(prev&&[...s.options].some(o=>o.value===prev))s.value=prev;else s.value="";s.size=1;s.removeAttribute("multiple");}
+function getSel(id){const el=document.getElementById(id);if(!el)return[];return[...el.selectedOptions].map(o=>o.value).filter(v=>v!=="");}
+
+function updateDependentFilters(){
+  const fA=new Set(getSel("fAnio")),fM=new Set(getSel("fMes")),fC=new Set(getSel("fCC"));
+  let base=state.rows;
+  if(fA.size)base=base.filter(r=>r.mes&&fA.has(getAnio(r.mes)));
+  if(fM.size)base=base.filter(r=>fM.has(r.mes));
+  if(fC.size)base=base.filter(r=>fC.has(r.cc));
+  fillSelect("fBodega",uniqNorm(base.map(r=>r.bodega)));
+  fillSelect("fSubGrupo",uniqNorm(base.map(r=>r.sub_grupo)));
+}
+
+function buildFilters(){
+  // Años disponibles
+  const years=uniq(state.rows.map(r=>r.mes&&r.mes!=="(sin mes)"?r.mes.split("-")[0]:null).filter(Boolean));
+  fillSelect("fAnio",years);
+  fillSelect("fMes",uniq(state.rows.map(r=>r.mes)),mesLabel);
+  fillSelect("fCC",uniqNorm(state.rows.map(r=>r.cc)));
+  fillSelect("fBodega",uniqNorm(state.rows.map(r=>r.bodega)));
+  fillSelect("fSubGrupo",uniqNorm(state.rows.map(r=>r.sub_grupo)));
+  document.getElementById("fAnio").addEventListener("change",()=>{updateDependentFilters();refresh();});
+  document.getElementById("fCC").addEventListener("change",()=>{updateDependentFilters();refresh();});
+  document.getElementById("fMes").addEventListener("change",()=>{updateDependentFilters();refresh();});
+  document.getElementById("fBodega").addEventListener("change",refresh);
+  document.getElementById("fSubGrupo").addEventListener("change",refresh);
+  const fBus=document.getElementById("fBuscador");
+  if(fBus)fBus.addEventListener("input",()=>{clearTimeout(window.__busT);window.__busT=setTimeout(refresh,180);});
+  document.getElementById("btnResetFilters").onclick=()=>{
+    ["fAnio","fMes","fBodega","fCC","fSubGrupo"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
+    if(fBus)fBus.value="";
+    fillSelect("fBodega",uniqNorm(state.rows.map(r=>r.bodega)));
+    fillSelect("fSubGrupo",uniqNorm(state.rows.map(r=>r.sub_grupo)));
+    refresh();
+  };
+  const meses=uniq(state.rows.map(r=>r.mes));
+  const rm=document.getElementById("recountMes");
+  rm.innerHTML=`<option value="">(todos los meses)</option>`+meses.map(m=>`<option value="${m}">${mesLabel(m)}</option>`).join("");
+  rm.value=meses[meses.length-1]||"";
+  rm.onchange=renderRecount;
+  document.getElementById("recountLimit").onchange=renderRecount;
+}
+
+function getAnio(mes){return(mes&&mes!=="(sin mes)")?mes.split("-")[0]:null;}
+function applyFilters(rows){
+  const fA=new Set(getSel("fAnio")),fM=new Set(getSel("fMes")),fB=new Set(getSel("fBodega")),fC=new Set(getSel("fCC")),fSG=new Set(getSel("fSubGrupo"));
+  const qEl=document.getElementById("fBuscador");
+  const q=(qEl?qEl.value:"").trim().toLowerCase();
+  return rows.filter(r=>
+    (!fA.size||(r.mes&&fA.has(getAnio(r.mes))))&&
+    (!fM.size||fM.has(r.mes))&&
+    (!fB.size||fB.has(r.bodega))&&
+    (!fC.size||fC.has(r.cc))&&
+    (!fSG.size||fSG.has(r.sub_grupo))&&
+    (!q||(r.codigo&&String(r.codigo).toLowerCase().includes(q))||(r.descripcion&&String(r.descripcion).toLowerCase().includes(q)))
+  );
+}
+
+/* ===== CÁLCULOS ===== */
+function aggregate(rows){
+  let teorU=0,teorV=0,absU=0,absV=0,items=0,conDiff=0,netU=0,netP=0;
+  for(const r of rows){teorU+=r.stock_t;teorV+=r.stock_t*r.costo;absU+=abs(r.diff_u);absV+=abs(r.diff_p);netU+=r.diff_u;netP+=r.diff_p;items++;if(r.diff_u!==0||r.diff_p!==0)conDiff++;}
+  return{teorU,teorV,absU,absV,netU,netP,items,conDiff,exU:teorU>0?1-absU/teorU:(items?1:0),exV:teorV>0?1-absV/teorV:(items?1:0),itemsExactos:items-conDiff,iraItems:items?(items-conDiff)/items:0};
+}
+
+function getTotalAjustadoFiltrado(){
+  const fA=new Set(getSel("fAnio")),fM=new Set(getSel("fMes")),fB=new Set(getSel("fBodega")),fC=new Set(getSel("fCC")),fSG=new Set(getSel("fSubGrupo"));
+  return state.rowsContab.filter(r=>
+    (!fA.size||(r.mes&&fA.has(getAnio(r.mes))))&&
+    (!fM.size||fM.has(r.mes))&&(!fB.size||fB.has(r.bodega))&&(!fC.size||fC.has(r.cc))&&(!fSG.size||fSG.has(r.sub_grupo))
+  ).reduce((s,r)=>s+r.ajustado,0);
+}
+
+/* ===== KPIs ===== */
+function renderKpis(rows){
+  const a=aggregate(rows);
+  const ajust=getTotalAjustadoFiltrado();
+  const noContab=!state.rowsContab.length;
+  // Costo de inventario = total reportado en la hoja "Costo Inventario Inicial" (filtrado por Año/Mes/CC)
+  const fA=new Set(getSel("fAnio")),fM=new Set(getSel("fMes")),fCC=new Set(getSel("fCC"));
+  const invInicialFilt=state.rowsInvInicial.filter(r=>
+    (!fA.size||(r.mes&&fA.has(getAnio(r.mes))))&&
+    (!fM.size||fM.has(r.mes))&&
+    (!fCC.size||fCC.has(r.cc))
+  );
+  const invInicialTotal=invInicialFilt.reduce((s,r)=>s+(r.inv_inicial||0),0);
+  const tieneInvIni=invInicialFilt.length>0&&invInicialTotal!==0;
+  const costoInv=tieneInvIni?invInicialTotal:a.teorV;
+  const costoInvHint=tieneInvIni
+    ?`Total informado · hoja Costo Inventario Inicial (${invInicialFilt.length} registro${invInicialFilt.length===1?"":"s"})`
+    :`Σ stock teórico · costo unitario (sin Inv. Inicial para el filtro)`;
+  // Costo de inventario tomado = Σ stock contado × costo unitario (el $ correspondiente al % avance)
+  const costoTomado=rows.reduce((s,r)=>s+(r.stock_c*r.costo),0);
+  const pctRecuento=costoInv>0?(costoTomado/Math.abs(costoInv))*100:null;
+  const tomadoColor=pctRecuento===null?"":pctRecuento>100?"#f97316":pctRecuento>=90?"#22d3ee":pctRecuento>=60?"#fbbf24":"#ef4444";
+  const pctImpacto=(!noContab&&costoInv>0)?(ajust/costoInv)*100:null;
+  const html=`
+    <div class="kpi"><div class="lab">Costo de inventario</div>
+      <div class="val">${fmtMoney(costoInv)}</div>
+      <div class="hint">${costoInvHint}</div></div>
+    <div class="kpi"><div class="lab">Costo de inventario tomado</div>
+      <div class="val" style="color:${tomadoColor||"#e5e7eb"}">${fmtMoney(costoTomado)}</div>
+      <div class="hint">Σ stock contado · costo unitario${pctRecuento!==null?` &middot; <strong style="color:${tomadoColor}">${pctRecuento.toFixed(1)}%</strong> del costo inicial`:""}</div></div>
+    <div class="kpi"><div class="lab">Dif recuento ($)</div>
+      <div class="val ${a.netP<0?'neg':a.netP>0?'pos':''}">${fmtMoney(a.netP)}</div>
+      <div class="hint">Σ diferencia $ neto (hoja Recuento). |Σ| = ${fmtMoney(a.absV)}</div></div>
+    <div class="kpi"><div class="lab">Total ajustado ($)</div>
+      <div class="val ${ajust<0?'neg':ajust>0?'pos':''}">${noContab?'<span class="small" style="font-size:13px">Sin hoja contabilización</span>':fmtMoney(ajust)}</div>
+      <div class="hint">Σ valor ajustado · hoja de Contabilización (filtrado)</div></div>
+    <div class="kpi"><div class="lab">Ajuste / Inventario</div>
+      <div class="val ${pctImpacto===null?'':pctImpacto<0?'neg':pctImpacto>0?'pos':''}">${pctImpacto===null?'<span class="small" style="font-size:13px">Sin datos</span>':(pctImpacto>=0?'+':'')+pctImpacto.toFixed(2)+'%'}</div>
+      <div class="hint">Total ajustado como % del costo de inventario</div></div>
+    <div class="kpi"><div class="lab">OTIF Exactitud</div>
+      <div class="val">${fmtPct(a.iraItems)}</div>
+      <div class="bar"><div style="width:${Math.max(0,Math.min(100,a.iraItems*100)).toFixed(1)}%"></div></div>
+      <div class="hint">Ítems exactos: ${fmtNum(a.itemsExactos)} / ${fmtNum(a.items)}</div></div>
+  `;
+  document.getElementById("kpis").innerHTML=html;
+}
+
+/* ===== HISTÓRICO CC ===== */
+let _chartHistCC=null;
+function renderHistoricoCC(){
+  const t=document.getElementById("tblHistCC"),cv=document.getElementById("chartHistCC");
+  const selMeses=getSel("fMes");
+  const selAnio=getSel("fAnio");
+  const allContabMonths=[...new Set(state.rowsContab.map(r=>r.mes||"(sin mes)"))].filter(m=>m!=="(sin mes)"&&(!selAnio.length||selAnio.includes(m.split("-")[0]))).sort();
+  let displayMonths;
+  if(selMeses.length>0){const refMonth=[...selMeses].sort().pop();displayMonths=allContabMonths.filter(m=>m<=refMonth).slice(-6);}
+  else{displayMonths=allContabMonths.slice(-6);}
+  const fA_h=new Set(getSel("fAnio")),fB=new Set(getSel("fBodega")),fC=new Set(getSel("fCC")),fSG=new Set(getSel("fSubGrupo"));
+  const contabFilt=state.rowsContab.filter(r=>displayMonths.includes(r.mes||"(sin mes)")&&(!fA_h.size||(r.mes&&fA_h.has(getAnio(r.mes))))&&(!fB.size||fB.has(r.bodega))&&(!fC.size||fC.has(r.cc))&&(!fSG.size||fSG.has(r.sub_grupo)));
+  const ccMap=new Map();
+  for(const r of contabFilt){const cc=r.cc||"(sin CC)",mes=r.mes||"(sin mes)";if(!ccMap.has(cc))ccMap.set(cc,{});const mm=ccMap.get(cc);mm[mes]=(mm[mes]||0)+r.ajustado;}
+  const ccData=[...ccMap.entries()].map(([cc,byMes])=>({cc,byMes,meses:displayMonths.map(m=>byMes[m]||0)})).sort((a,b)=>Math.abs(b.meses.reduce((s,v)=>s+v,0))-Math.abs(a.meses.reduce((s,v)=>s+v,0)));
+  if(!ccData.length||!displayMonths.length){
+    t.querySelector("thead").innerHTML="";t.querySelector("tbody").innerHTML=`<tr><td style="padding:24px;text-align:center;color:var(--muted)">Sin datos de contabilización</td></tr>`;t.querySelector("tfoot").innerHTML="";
+    if(_chartHistCC){_chartHistCC.destroy();_chartHistCC=null;}return;
+  }
+  const subMeses=displayMonths.map((_,mi)=>ccData.reduce((s,d)=>s+d.meses[mi],0));
+  t.querySelector("thead").innerHTML=`<tr><th>Centro de Costo</th>${displayMonths.map(m=>`<th class="num">${mesCorto(m)}</th>`).join("")}</tr>`;
+  t.querySelector("tbody").innerHTML=ccData.map(d=>`<tr><td>${d.cc}</td>${d.meses.map(v=>`<td class="num ${v<0?"neg":v>0?"pos":""}">${fmtCC(v)}</td>`).join("")}</tr>`).join("");
+  t.querySelector("tfoot").innerHTML=`<tr style="background:#060d1a"><td style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text)">Total</td>${subMeses.map(v=>`<td class="num ${v<0?"neg":v>0?"pos":""}" style="font-size:13px">${fmtCC(v)}</td>`).join("")}</tr>`;
+  const palette=["#3b82f6","#22c55e","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
+  const topCC=ccData.slice(0,8);
+  const datasets=[...topCC.map((d,i)=>({label:d.cc,data:displayMonths.map(m=>d.byMes[m]||null),borderColor:palette[i%palette.length],backgroundColor:palette[i%palette.length]+"28",borderWidth:1.8,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:palette[i%palette.length],pointBorderColor:"#0f172a",pointBorderWidth:1,tension:0.35,fill:true,spanGaps:true,order:i+1}))];
+  if(_chartHistCC){_chartHistCC.destroy();_chartHistCC=null;}
+  _chartHistCC=new Chart(cv.getContext("2d"),{type:"line",data:{labels:displayMonths.map(mesCorto),datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom",labels:{color:"#cbd5e1",font:{size:10},boxWidth:12,padding:6,usePointStyle:true,pointStyle:"circle"}},tooltip:{backgroundColor:"#1e293b",borderColor:"#334155",borderWidth:1,callbacks:{label:c=>`  ${c.dataset.label}: ${fmtMoney(c.parsed.y)}`}}},scales:{x:{ticks:{color:"#94a3b8",font:{size:11}},grid:{color:"#1f2937"}},y:{ticks:{color:"#94a3b8",font:{size:11},callback:v=>fmtMoney(v)},grid:{color:"#1f2937"}}}}});
+}
+
+/* ===== TOP 20 ===== */
+function aggregateProducto(rows){
+  const m=new Map();
+  for(const r of rows){const k=`${r.empresa}|${r.codigo}`;const cur=m.get(k)||{empresa:r.empresa,codigo:r.codigo,descripcion:r.descripcion,bodegas:new Set(),ccs:new Set(),diff_u:0,diff_p:0,teor:0};cur.diff_u+=r.diff_u;cur.diff_p+=r.diff_p;cur.teor+=r.stock_t;if(r.bodega)cur.bodegas.add(r.bodega);if(r.cc)cur.ccs.add(r.cc);if(!cur.descripcion&&r.descripcion)cur.descripcion=r.descripcion;m.set(k,cur);}
+  return[...m.values()].map(x=>({...x,bodegas:[...x.bodegas].join(", "),cc:[...x.ccs].join(", ")}));
+}
+let sortTopBy="abs_ajust",sortTopDir=-1,selectedTopKey=null;
+function renderTop(rows){
+  const contabFilt=applyFilters(state.rowsContab);const contabMap=new Map();
+  for(const r of contabFilt){const k=`${r.empresa}|${r.codigo}`;const c=contabMap.get(k)||{empresa:r.empresa,codigo:r.codigo,descripcion:r.descripcion,bodegas:new Set(),diff_u_c:0,ajustado:0};c.diff_u_c+=r.diff_u;c.ajustado+=r.ajustado;if(r.bodega)c.bodegas.add(r.bodega);if(!c.descripcion&&r.descripcion)c.descripcion=r.descripcion;contabMap.set(k,c);}
+  const recuentoMap=new Map();
+  for(const r of rows){const k=`${r.empresa}|${r.codigo}`;const c=recuentoMap.get(k)||{diff_u_r:0,descripcion:r.descripcion};c.diff_u_r+=r.diff_u;if(!c.descripcion&&r.descripcion)c.descripcion=r.descripcion;recuentoMap.set(k,c);}
+  let data=[...contabMap.values()].map(c=>({...c,bodegas:[...c.bodegas].join(", "),diff_u_r:recuentoMap.get(`${c.empresa}|${c.codigo}`)?.diff_u_r??0,descripcion:c.descripcion||recuentoMap.get(`${c.empresa}|${c.codigo}`)?.descripcion||""})).filter(p=>p.ajustado!==0||p.diff_u_c!==0);
+  data.sort((a,b)=>{const va=sortTopBy==="abs_ajust"?abs(a.ajustado):sortTopBy==="diff_u_r"?a.diff_u_r:sortTopBy==="diff_u_c"?a.diff_u_c:a[sortTopBy]||0;const vb=sortTopBy==="abs_ajust"?abs(b.ajustado):sortTopBy==="diff_u_r"?b.diff_u_r:sortTopBy==="diff_u_c"?b.diff_u_c:b[sortTopBy]||0;return(va>vb?1:va<vb?-1:0)*sortTopDir;});
+  const topN=parseInt(document.getElementById("fTopN").value||"20",10);const top=data.slice(0,topN);const t=document.getElementById("tblTop");
+  const uniqCods=[...new Set(top.map(p=>p.codigo))].sort();
+  t.querySelector("thead").innerHTML=`<tr><th data-s="codigo">Código</th><th data-s="descripcion">Descripción</th><th class="num" data-s="diff_u_r">DIF Rec</th><th class="num" data-s="diff_u_c">DIF Cont</th><th class="num" data-s="abs_ajust">Dif $</th></tr><tr><th class="th-filter"><select id="fTCodigo"><option value="">Todos</option>${uniqCods.map(c=>`<option value="${c}">${c}</option>`).join("")}</select></th><th class="th-filter"><input id="fTDesc" placeholder="Buscar…"></th><th class="th-filter"><select id="fTDifR"><option value="">Todos</option><option value="pos">▲ Positivos</option><option value="neg">▼ Negativos</option></select></th><th class="th-filter"><select id="fTDifC"><option value="">Todos</option><option value="pos">▲ Positivos</option><option value="neg">▼ Negativos</option></select></th><th class="th-filter"><select id="fTDifP"><option value="">Todos</option><option value="pos">▲ Positivos</option><option value="neg">▼ Negativos</option></select></th></tr>`;
+  const renderRows=()=>{
+    const fCod=document.getElementById("fTCodigo").value,fDesc=norm(document.getElementById("fTDesc").value),fDifR=document.getElementById("fTDifR").value,fDifC=document.getElementById("fTDifC").value,fDifP=document.getElementById("fTDifP").value;
+    const visible=top.filter(p=>(!fCod||p.codigo===fCod)&&(!fDesc||norm(p.descripcion).includes(fDesc)||norm(p.codigo).includes(fDesc))&&(!fDifR||(fDifR==="pos"?p.diff_u_r>0:p.diff_u_r<0))&&(!fDifC||(fDifC==="pos"?p.diff_u_c>0:p.diff_u_c<0))&&(!fDifP||(fDifP==="pos"?p.ajustado>0:p.ajustado<0)));
+    const subtotal=visible.reduce((s,p)=>s+p.ajustado,0);
+    const subEl=document.getElementById("topSubtotal");subEl.textContent=fmtMoney(subtotal);subEl.className=subtotal<0?"neg":subtotal>0?"pos":"";
+    document.getElementById("topCount").textContent=visible.length<top.length?`${visible.length} de ${top.length} productos`:`${top.length} productos`;
+    t.querySelector("tbody").innerHTML=visible.map(p=>{const key=`${p.empresa}|${p.codigo}`;const sel=key===selectedTopKey?' class="row-sel"':'';return `<tr${sel} data-key="${key.replace(/"/g,'&quot;')}"><td class="nowrap">${p.codigo}</td><td>${p.descripcion||"—"} <div class="small">${p.bodegas}</div></td><td class="num ${p.diff_u_r<0?'neg':p.diff_u_r>0?'pos':''}">${fmtNum(p.diff_u_r)}</td><td class="num ${p.diff_u_c<0?'neg':p.diff_u_c>0?'pos':''}">${fmtNum(p.diff_u_c)}</td><td class="num ${p.ajustado<0?'neg':p.ajustado>0?'pos':''}">${fmtMoney(p.ajustado)}</td></tr>`;}).join("")||`<tr><td colspan="5" class="small" style="text-align:center;padding:20px;color:var(--muted)">${top.length?"Sin resultados":"Sin datos de contabilización"}</td></tr>`;
+    t.querySelectorAll("tbody tr[data-key]").forEach(tr=>{tr.onclick=()=>{const key=tr.dataset.key;if(selectedTopKey===key){selectedTopKey=null;t.querySelectorAll("tbody tr").forEach(r=>r.classList.remove("row-sel"));renderEvo();}else{selectedTopKey=key;t.querySelectorAll("tbody tr").forEach(r=>r.classList.remove("row-sel"));tr.classList.add("row-sel");renderEvo();}};});
+  };
+  document.getElementById("fTCodigo").addEventListener("change",e=>{e.stopPropagation();renderRows();});
+  document.getElementById("fTDesc").addEventListener("input",e=>{e.stopPropagation();renderRows();});
+  document.getElementById("fTDifR").addEventListener("change",e=>{e.stopPropagation();renderRows();});
+  document.getElementById("fTDifC").addEventListener("change",e=>{e.stopPropagation();renderRows();});
+  document.getElementById("fTDifP").addEventListener("change",e=>{e.stopPropagation();renderRows();});
+  renderRows();
+  t.querySelectorAll("thead tr:first-child th[data-s]").forEach(th=>th.onclick=()=>{const k=th.dataset.s;if(!k)return;if(sortTopBy===k)sortTopDir=-sortTopDir;else{sortTopBy=k;sortTopDir=-1;}renderTop(rows);});
+}
+
+/* ===== BODEGAS ===== */
+function renderBodegas(rows){
+  // Agrupación por bodega usando SOLO la hoja Recuento
+  const m=new Map();
+  for(const r of rows){const k=`${r.empresa}||${r.bodega||"(sin bodega)"}`;const cur=m.get(k)||{empresa:r.empresa,bodega:r.bodega||"(sin bodega)",refs:0,conDif:0,difRec:0};cur.refs++;if(r.diff_u!==0||r.diff_p!==0)cur.conDif++;cur.difRec+=r.diff_p;m.set(k,cur);}
+  // Diferencia $ desde Contabilización (mismos filtros activos)
+  const contabFilt=applyFilters(state.rowsContab);
+  const cmap=new Map();
+  for(const r of contabFilt){const k=`${r.empresa}||${r.bodega||"(sin bodega)"}`;cmap.set(k,(cmap.get(k)||0)+(r.ajustado||0));}
+  const data=[...m.values()].map(x=>({...x,difContab:cmap.get(`${x.empresa}||${x.bodega}`)||0,exactitud:x.refs>0?(x.refs-x.conDif)/x.refs:1})).sort((a,b)=>a.exactitud-b.exactitud);
+  const t=document.getElementById("tblBodega");
+  t.querySelector("thead").innerHTML=`<tr><th>Bodega</th><th class="num">Total ref</th><th class="num">Ref con dif</th><th class="num">% Exactitud</th><th class="num">Dif $ Recuento</th><th class="num">Dif $ Contabilización</th><th>Foco</th></tr>`;
+  t.querySelector("tbody").innerHTML=data.map(d=>{const flag=d.exactitud<0.95?'<span class="tag err">Acción</span>':d.exactitud<0.98?'<span class="tag" style="background:#3a2c0e;color:#fbbf24">Revisar</span>':'<span class="tag ok">OK</span>';return`<tr><td>${d.bodega}</td><td class="num">${fmtNum(d.refs)}</td><td class="num">${fmtNum(d.conDif)}</td><td class="num ${d.exactitud<0.95?'neg':d.exactitud<0.98?'status-warn':'pos'}">${fmtPct(d.exactitud)}</td><td class="num ${d.difRec<0?'neg':d.difRec>0?'pos':''}">${fmtMoney(d.difRec)}</td><td class="num ${d.difContab<0?'neg':d.difContab>0?'pos':''}">${fmtMoney(d.difContab)}</td><td>${flag}</td></tr>`;}).join("");
+}
+
+/* ===== EVOLUCIÓN ===== */
+let _chartEvoInst=null;
+function renderEvo(){
+  const empty=document.getElementById("evoEmpty"),content=document.getElementById("evoContent");
+  if(!selectedTopKey){empty.style.display="";content.style.display="";if(_chartEvoInst){_chartEvoInst.destroy();_chartEvoInst=null;}content.style.display="none";return;}
+  const sepIdx=selectedTopKey.indexOf("|"),empresa=selectedTopKey.slice(0,sepIdx),codigo=selectedTopKey.slice(sepIdx+1);
+  const prodRows=state.rowsContab.filter(r=>r.empresa===empresa&&r.codigo===codigo);
+  const desc=prodRows.find(r=>r.descripcion)?.descripcion||codigo;
+  const allMonths=[...new Set(state.rowsContab.map(r=>r.mes||"(sin mes)").filter(m=>m!=="(sin mes)"))].sort();
+  const selMesFilt=getSel("fMes");
+  const refMonthEvo=selMesFilt.length===1?selMesFilt[0]:(allMonths[allMonths.length-1]||"");
+  const last3=allMonths.filter(m=>m<=refMonthEvo).slice(-3);
+  const byMes={};for(const m of last3)byMes[m]={diff_u:0,ajustado:0};
+  for(const r of prodRows){const m=r.mes||"(sin mes)";if(byMes[m]){byMes[m].diff_u+=r.diff_u;byMes[m].ajustado+=r.ajustado;}}
+  empty.style.display="none";content.style.display="";
+  document.getElementById("evoProdName").textContent=desc;
+  document.getElementById("evoProdCode").textContent=`Código: ${codigo}  ·  ${empresa}`;
+  const t=document.getElementById("tblEvo");
+  t.querySelector("thead").innerHTML=`<tr><th>Mes</th><th class="num">DIF u (Cont.)</th><th class="num">Dif $ (Cont.)</th><th class="num">|Dif $|</th></tr>`;
+  t.querySelector("tbody").innerHTML=last3.map(m=>{const d=byMes[m];return`<tr><td>${mesLabel(m)}</td><td class="num ${d.diff_u<0?'neg':d.diff_u>0?'pos':''}">${fmtNum(d.diff_u)}</td><td class="num ${d.ajustado<0?'neg':d.ajustado>0?'pos':''}">${fmtMoney(d.ajustado)}</td><td class="num">${fmtMoney(abs(d.ajustado))}</td></tr>`;}).join("");
+  const values=last3.map(m=>byMes[m].ajustado);const bgColors=values.map(v=>v<0?'rgba(239,68,68,0.75)':'rgba(34,197,94,0.75)');const brdColors=values.map(v=>v<0?'#ef4444':'#22c55e');
+  const ctx=document.getElementById("chartEvo").getContext("2d");
+  if(_chartEvoInst){_chartEvoInst.destroy();_chartEvoInst=null;}
+  _chartEvoInst=new Chart(ctx,{type:"bar",data:{labels:last3.map(mesLabel),datasets:[{label:"Dif $ Contabilización",data:values,backgroundColor:bgColors,borderColor:brdColors,borderWidth:1.5,borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtMoney(c.parsed.y)}}},scales:{x:{ticks:{color:"#cbd5e1",font:{size:11}},grid:{color:"#1f2937"}},y:{ticks:{color:"#cbd5e1",font:{size:10},callback:v=>fmtMoney(v)},grid:{color:"#1f2937"}}}}});
+}
+
+/* ===== RECUENTO SUGERIDO ===== */
+let sortRecBy="abs_p",sortRecDir=-1;
+function renderRecount(){
+  let rows=applyFilters(state.rows);
+  const targetMes=document.getElementById("recountMes").value;
+  if(targetMes)rows=rows.filter(r=>r.mes===targetMes);
+  const agg=aggregateProducto(rows).filter(p=>p.diff_u!==0||p.diff_p!==0);
+  agg.sort((a,b)=>{if(sortRecBy==="abs_p")return(abs(b.diff_p)-abs(a.diff_p))*(sortRecDir===-1?1:-1)||(abs(b.diff_u)-abs(a.diff_u));if(sortRecBy==="abs_u")return(abs(b.diff_u)-abs(a.diff_u))*(sortRecDir===-1?1:-1)||(abs(b.diff_p)-abs(a.diff_p));const va=a[sortRecBy],vb=b[sortRecBy];return(va>vb?1:va<vb?-1:0)*sortRecDir;});
+  const lim=parseInt(document.getElementById("recountLimit").value,10);
+  const data=lim>0?agg.slice(0,lim):agg;
+  const t=document.getElementById("tblRecount");
+  t.querySelector("thead").innerHTML=`<tr><th class="num">#</th><th data-s="codigo">Código</th><th data-s="descripcion">Descripción</th><th>Centro de Costo</th><th class="num" data-s="diff_u">Dif u</th><th class="num" data-s="diff_p">Dif $</th></tr>`;
+  t.querySelector("tbody").innerHTML=data.map((p,i)=>`<tr><td class="num">${i+1}</td><td class="nowrap">${p.codigo}</td><td>${p.descripcion||"—"}</td><td class="small">${p.cc||"—"}</td><td class="num ${p.diff_u<0?'neg':p.diff_u>0?'pos':''}">${fmtNum(p.diff_u)}</td><td class="num ${p.diff_p<0?'neg':p.diff_p>0?'pos':''}">${fmtMoney(p.diff_p)}</td></tr>`).join("")||`<tr><td colspan="6" class="small" style="text-align:center;padding:16px">Sin productos con diferencia</td></tr>`;
+  t.querySelectorAll("th").forEach(th=>th.onclick=()=>{const k=th.dataset.s;if(!k)return;if(sortRecBy===k)sortRecDir=-sortRecDir;else{sortRecBy=k;sortRecDir=-1;}renderRecount();});
+  document.getElementById("btnExportRecount").onclick=()=>exportRecount(data,targetMes);
+}
+function exportRecount(data,mes){
+  const aoa=[["#","Código","Descripción","Centro de Costo","Dif u","Dif $"]];
+  data.forEach((p,i)=>aoa.push([i+1,p.codigo,p.descripcion,p.cc||"",p.diff_u,p.diff_p]));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),"Recuento sugerido");
+  XLSX.writeFile(wb,`recuento_sugerido${mes?"_"+mes:""}.xlsx`);
+}
+
+/* ===== AVANCE INVENTARIO ===== */
+let _chartAvance=null;
+function renderAvance(){
+  const empty=document.getElementById("avanceEmpty"),content=document.getElementById("avanceContent");
+  const badge=document.getElementById("avancePromedioBadge");
+  if(!state.rowsInvInicial.length){
+    empty.innerHTML='Sin datos de Inventario Inicial. Aseg&uacute;rate de que el archivo Excel contenga la hoja <strong>"Costo Inventario Inicial"</strong> con columnas de Centro de Costo y valor. <span style="color:#64748b;font-size:11px">(Abre consola del navegador con F12 para ver diagnóstico detallado)</span>';
+    empty.style.display="";content.style.display="none";if(badge)badge.style.display="none";if(_chartAvance){_chartAvance.destroy();_chartAvance=null;}return;}
+  // Filtrar inventario inicial por el período seleccionado (Año + Mes)
+  const fA=new Set(getSel("fAnio")),fM=new Set(getSel("fMes"));
+  const invInicialFilt=state.rowsInvInicial.filter(r=>
+    (!fA.size||(r.mes&&fA.has(getAnio(r.mes))))&&
+    (!fM.size||fM.has(r.mes))
+  );
+  if(!invInicialFilt.length){
+    empty.textContent=fM.size||fA.size
+      ?"Sin datos de Inventario Inicial para el período seleccionado."
+      :"Sin datos de Inventario Inicial. Aseg\u00FArate de que el archivo contenga la hoja \"Costo Inventario Inicial\".";
+    empty.style.display="";content.style.display="none";
+    if(badge)badge.style.display="none";
+    if(_chartAvance){_chartAvance.destroy();_chartAvance=null;}return;
+  }
+  // Agrupar inventario inicial por CC (solo del período filtrado)
+  const invMap=new Map();
+  for(const r of invInicialFilt){const k=r.cc.normalize("NFC").replace(/\s+/g," ").trim();invMap.set(k,(invMap.get(k)||0)+r.inv_inicial);}
+  // Costo inventariado por CC y por Mes (Σ stock_c × costo desde Recuento, con filtros activos)
+  const recuentoFilt=applyFilters(state.rows);
+  const recuentoByCCMes=new Map(); // cc -> Map(mes -> $)
+  const mesesSet=new Set();
+  for(const r of recuentoFilt){
+    const k=(r.cc||"").normalize("NFC").replace(/\s+/g," ").trim();
+    if(!k)continue;
+    const mes=r.mes||"sin-mes";
+    mesesSet.add(mes);
+    if(!recuentoByCCMes.has(k))recuentoByCCMes.set(k,new Map());
+    const mp=recuentoByCCMes.get(k);
+    mp.set(mes,(mp.get(mes)||0)+(r.stock_c*r.costo));
+  }
+  const meses=[...mesesSet].sort();
+  // Calcular avance: join por CC con descomposición por mes — orden por tamaño de Inv. Inicial
+  const data=[...invMap.entries()].map(([cc,inv])=>{
+    const mesMp=recuentoByCCMes.get(cc)||new Map();
+    const porMes=meses.map(m=>mesMp.get(m)||0);
+    const costoInv=porMes.reduce((a,b)=>a+b,0);
+    const pct=inv!==0?costoInv/Math.abs(inv)*100:0;
+    return{cc,inv,costoInv,pct,porMes};
+  }).filter(d=>d.inv!==0).sort((a,b)=>Math.abs(b.inv)-Math.abs(a.inv));
+  if(!data.length){empty.style.display="";content.style.display="none";if(badge)badge.style.display="none";return;}
+  // Valor principal = Costo tomado / Costo Inv. Inicial ($ ponderado, mismo cálculo que el KPI)
+  const totalInv=data.reduce((a,d)=>a+Math.abs(d.inv),0);
+  const totalCosto=data.reduce((a,d)=>a+d.costoInv,0);
+  const promedioPond=totalInv!==0?totalCosto/totalInv*100:0;
+  const promedioSimple=data.reduce((a,d)=>a+d.pct,0)/data.length;
+  if(badge){
+    const valEl=document.getElementById("avancePromedioValue");
+    const detEl=document.getElementById("avancePromedioDetail");
+    const color=promedioPond>100?"#f97316":promedioPond>=90?"#22c55e":promedioPond>=60?"#fbbf24":"#ef4444";
+    valEl.textContent=promedioPond.toFixed(1)+"%";
+    valEl.style.color=color;
+    detEl.textContent="Tomado / Inicial $ · "+data.length+" CC · prom. simple "+promedioSimple.toFixed(1)+"%";
+    badge.style.display="";
+  }
+  // Mostrar etiqueta del período activo
+  const periodos=[...new Set(invInicialFilt.map(r=>r.mes).filter(Boolean))].sort();
+  const periodoLabel=periodos.length===1?mesLabel(periodos[0]):periodos.length>1?`${mesLabel(periodos[0])} \u2013 ${mesLabel(periodos[periodos.length-1])}`:"(todos los períodos)";
+  const periodoEl=document.getElementById("avancePeriodo");
+  if(periodoEl)periodoEl.textContent=`Período: ${periodoLabel}`;
+  empty.style.display="none";content.style.display="";
+  // Altura dinámica: más espacio para etiquetas
+  // Formateador compacto $: 12.3M, 450K, etc
+  const fmtMoneyCompact=(n)=>{const a=Math.abs(n);if(a>=1e9)return"$"+(n/1e9).toFixed(1)+"B";if(a>=1e6)return"$"+(n/1e6).toFixed(1)+"M";if(a>=1e3)return"$"+(n/1e3).toFixed(0)+"K";return"$"+Math.round(n);};
+  // Paleta por estado (gradiente + glow para el slider)
+  const palette=(pct)=>{
+    if(pct>100)return{from:"#7c2d12",mid:"#f97316",to:"#fdba74",glow:"rgba(249,115,22,0.45)",ring:"rgba(249,115,22,0.30)",text:"#fdba74"};
+    if(pct>=90)return{from:"#1e3a8a",mid:"#3b82f6",to:"#22d3ee",glow:"rgba(34,211,238,0.45)",ring:"rgba(34,211,238,0.30)",text:"#67e8f9"};
+    if(pct>=60)return{from:"#78350f",mid:"#f59e0b",to:"#fbbf24",glow:"rgba(251,191,36,0.40)",ring:"rgba(251,191,36,0.25)",text:"#fde68a"};
+    return{from:"#7f1d1d",mid:"#ef4444",to:"#fca5a5",glow:"rgba(239,68,68,0.40)",ring:"rgba(239,68,68,0.25)",text:"#fca5a5"};
+  };
+  // Construir lista de "sliders" por CC
+  const list=document.getElementById("avanceList");
+  list.innerHTML=data.map(d=>{
+    const p=palette(d.pct);
+    const w=Math.max(0,Math.min(d.pct,100));
+    const titleTxt=`${d.cc}\n  Recuento: ${fmtMoney(d.costoInv)}\n  Inv. Inicial: ${fmtMoney(d.inv)}\n  Avance: ${d.pct.toFixed(1)}%${d.pct>100?" (sobre 100%)":""}`;
+    return `<div class="avance-row" title="${titleTxt.replace(/"/g,"&quot;")}">
+      <div>
+        <div class="avance-cc-name">${d.cc}</div>
+        <div class="avance-sub">${fmtMoneyCompact(d.costoInv)} / ${fmtMoneyCompact(d.inv)}</div>
+      </div>
+      <div class="avance-pill">
+        <div class="avance-pill-track">
+          <div class="avance-pill-fill" style="width:${w.toFixed(1)}%;--av-from:${p.from};--av-mid:${p.mid};--av-to:${p.to};--av-glow:${p.glow};--av-knob-ring:${p.ring}">
+            <div class="avance-pill-knob"></div>
+          </div>
+        </div>
+      </div>
+      <div class="avance-pct" style="color:${p.text}">${d.pct.toFixed(0)}%</div>
+    </div>`;
+  }).join("");
+  // Limpiar cualquier Chart.js previo (compatibilidad con versión anterior)
+  if(_chartAvance){_chartAvance.destroy();_chartAvance=null;}
+}
+/* ===== REFRESH ===== */
+function refresh(){
+  const rows=applyFilters(state.rows);
+  renderAvance();renderKpis(rows);renderHistoricoCC();renderTop(rows);renderBodegas(rows);renderEvo();renderRecount();
+}
+
+/* ===== EVENTOS ===== */
+document.getElementById("btnPick").onclick=()=>pickFolder(false);
+document.getElementById("btnAdd").onclick=()=>pickFolder(true);
+document.getElementById("fTopN").addEventListener("change",refresh);
+document.getElementById("btnClear").onclick=()=>{
+  state.files=[];state.rows=[];state.rowsContab=[];state.rowsInvInicial=[];renderFiles();
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("emptyState").style.display="";
+};
+document.getElementById("btnProcess").onclick=processAll;
+renderFiles();
+</script>
+</body>
+</html>                                                                                                                                                        
