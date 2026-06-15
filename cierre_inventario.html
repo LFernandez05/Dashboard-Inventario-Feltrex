@@ -293,16 +293,16 @@
     </div>
   </div>
   <div class="header-actions">
-    <button class="btn" id="btnPick">&#8635; Recargar datos</button>
+    <button class="btn" id="btnPick">Seleccionar carpeta</button>
+    <button class="btn secondary" id="btnAdd">A&ntilde;adir archivos</button>
     <button class="btn ghost" id="btnClear">Limpiar</button>
-    <span id="serverStatus" style="font-size:11px;color:#7f8ca8;align-self:center"></span>
   </div>
 </header>
 
 <main>
   <section id="loader" class="card">
     <div class="card-head"><h2>Archivos detectados</h2></div>
-    <div id="filesEmpty" class="small">Cargando archivos desde el servidor&hellip;</div>
+    <div id="filesEmpty" class="small">A&uacute;n no cargas archivos. Haz click en <b>Seleccionar carpeta</b> para que el tablero recorra recursivamente y encuentre todos los .xlsx.</div>
     <div id="filesWrap" style="display:none">
       <div class="files-table scroll" style="max-height:300px">
         <table><thead><tr><th>Archivo</th><th>Empresa</th><th>Mes</th><th>Hoja</th><th>Filas</th><th>Estado</th></tr></thead><tbody id="filesBody"></tbody></table>
@@ -555,34 +555,21 @@ function guessMes(name){const s=norm(name);let m=s.match(/(20\d\d)[-_\/. ]?(0[1-
 function mesLabel(ym){if(!ym)return "(sin mes)";const[y,m]=ym.split("-");if(!m)return ym;return `${MESES_ES[parseInt(m)-1]||m} ${y}`;}
 function guessEmpresa(path){const parts=path.split("/").filter(Boolean);if(parts.length>=2)return parts[0];return "(sin empresa)";}
 
-/* ===== LECTURA DESDE SERVIDOR ===== */
-async function pickFolder(){
-  const status=document.getElementById("serverStatus");
-  status.textContent="Conectando con el servidor…";
-  state.files=[];
-  try{
-    const res=await fetch("/api/archivos");
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    const lista=await res.json();
-    if(!Array.isArray(lista)||!lista.length){
-      status.textContent="⚠ No se encontraron archivos .xlsx en el servidor.";
-      renderFiles();return;
+/* ===== LECTURA DE CARPETA ===== */
+async function pickFolder(append=false){
+  if(!window.showDirectoryPicker){alert("Tu navegador no soporta selección de carpeta. Usa Chrome o Edge.");return;}
+  let handle;try{handle=await window.showDirectoryPicker();}catch(e){return;}
+  if(!append)state.files=[];
+  await walk(handle,"");
+  renderFiles();
+}
+async function walk(dirHandle,prefix){
+  for await(const[name,h]of dirHandle.entries()){
+    if(h.kind==="directory"){await walk(h,prefix?`${prefix}/${name}`:name);}
+    else if(h.kind==="file"&&/\.xlsx$/i.test(name)&&!name.startsWith("~$")){
+      const path=prefix?`${prefix}/${name}`:name;
+      state.files.push({handle:h,name,path,empresa:guessEmpresa(path),mes:guessMes(name)||guessMes(prefix),sheet:"",rows:0,parsed:null,error:""});
     }
-    for(const f of lista){
-      state.files.push({
-        serverPath:f.path,name:f.name,path:f.path,
-        empresa:f.empresa||guessEmpresa(f.path),
-        mes:guessMes(f.name)||guessMes(f.path),
-        sheet:"",rows:0,parsed:null,error:""
-      });
-    }
-    status.textContent=`✓ ${lista.length} archivo(s) encontrado(s)`;
-    renderFiles();
-    await processAll();
-  }catch(e){
-    status.textContent="✗ Sin conexión con el servidor. Abre con file:// para modo local.";
-    document.getElementById("filesEmpty").textContent="No se pudo conectar con el servidor. ¿Está ejecutando servidor.ps1?";
-    console.error("Error al conectar con el servidor:",e);
   }
 }
 
@@ -679,15 +666,7 @@ function parseInvInicialRows(wb,f){
 async function parseFile(f,onProgress){
   try{
     onProgress?.("Leyendo archivo…");
-    let ab;
-    if(f.serverPath){
-      const res=await fetch(`/data/${f.serverPath.split("/").map(encodeURIComponent).join("/")}`);
-      if(!res.ok)throw new Error(`HTTP ${res.status} al descargar ${f.name}`);
-      ab=await res.arrayBuffer();
-    } else {
-      const file=await f.handle.getFile();ab=await file.arrayBuffer();
-    }
-    await sleep(0);
+    const file=await f.handle.getFile();const ab=await file.arrayBuffer();await sleep(0);
     onProgress?.("Decodificando workbook…");
     const wb=XLSX.read(ab,{type:"array",cellDates:false,cellNF:false,cellText:false});await sleep(0);
     f.rowsContab=parseContabilizacionRows(wb,f);
@@ -2571,11 +2550,8 @@ async function generarInformeGerencia(){
 }
 
 renderFiles();
-// Auto-carga desde servidor si estamos en HTTP; modo local como fallback
-if(location.protocol==="http:"||location.protocol==="https:"){
-  pickFolder();
-}
-document.getElementById("btnPick").onclick=()=>pickFolder();
+document.getElementById("btnPick").onclick=()=>pickFolder(false);
+document.getElementById("btnAdd").onclick=()=>pickFolder(true);
 document.getElementById("btnClear").onclick=()=>{
   state.files=[];state.rows=[];state.rowsContab=[];state.rowsInvInicial=[];
   renderFiles();
